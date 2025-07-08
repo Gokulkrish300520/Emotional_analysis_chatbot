@@ -11,9 +11,6 @@ from datetime import datetime
 import markdown
 import google.generativeai as genai
 import re
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from flask import send_file
 
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
@@ -27,22 +24,59 @@ app = Flask(__name__)
 CORS(app)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(24))
 
+
 @app.route("/")
-def home():
+def landing():
+    return render_template("landing.html")
+
+
+@app.route("/chat_page")
+def chat_page():
     if 'emotion_log' not in session:
         session['emotion_log'] = []
     if 'chat_messages' not in session:
         session['chat_messages'] = []
     return render_template("index.html", chat_messages=session.get('chat_messages', []))
 
+
 def log_emotion(user_input, response):
+    # Ask Gemini to classify the emotion
+    emotion_prompt = (
+        "Analyze the following user message and identify the user's primary emotion. "
+        "Respond with just one word (Happy, Sad, Angry, Anxious, Excited, Overwhelmed, Calm, Lonely, or Neutral). "
+        f"Message: {user_input}"
+    )
+
+    try:
+        emotion_response = model.generate_content(emotion_prompt)
+        # Extract text properly using the new format
+        emotion_text = ""
+        for part in emotion_response.candidates[0].content.parts:
+            if hasattr(part, "text"):
+                emotion_text += part.text
+        emotion_text = emotion_text.strip().capitalize()
+
+        # Fallback if unexpected output
+        valid_emotions = {
+            "Happy", "Sad", "Angry", "Anxious", "Excited",
+            "Overwhelmed", "Calm", "Lonely", "Neutral"
+        }
+        if emotion_text not in valid_emotions:
+            emotion_text = "Neutral"
+
+    except Exception as e:
+        emotion_text = "Neutral"
+
     log_entry = {
         'timestamp': datetime.now().isoformat(),
         'user_input': user_input,
-        'bot_response': response
+        'bot_response': response,
+        'emotion': emotion_text
     }
+
     session['emotion_log'].append(log_entry)
     session.modified = True
+
 
 def log_chat_message(sender, message):
     chat_entry = {
@@ -78,23 +112,28 @@ def analyze_mood_log():
         "Excited": "Your enthusiasm is infectious! Channel this energy into creative projects or share your excitement with others to amplify the joy.",
         "Overwhelmed": "When things feel too much, take a moment to breathe deeply and prioritize tasks. Breaking things down can make them more manageable.",
         "Calm": "Your calm state is wonderful! Maintain it with relaxation techniques like yoga or a quiet walk in nature.",
-        "Lonely": "Feeling lonely can be tough. Reach out to someone you care about, join a community activity, or engage in self-care to feel more connected."
+        "Lonely": "Feeling lonely can be tough. Reach out to someone you care about, join a community activity, or engage in self-care to feel more connected.",
+        "Neutral": "You seem emotionally balanced or reflective. Feel free to explore your thoughts through journaling, conversation, or quiet moments of mindfulness."
+
     }
 
     emotion_log = session.get('emotion_log', [])
     for entry in emotion_log:
         user_input = entry['user_input'].lower()
         timestamp = entry['timestamp']
-        for pattern, label in mood_keywords.items():
-            if re.search(pattern, user_input):
-                mood_counts[label] = mood_counts.get(label, 0) + 1
-                if label not in mood_instances:
-                    mood_instances[label] = []
-                mood_instances[label].append({
-                    'timestamp': timestamp,
-                    'message': entry['user_input']
-                })
-                break  # Count only one mood per message
+        label = entry.get("emotion", "Neutral")
+
+# ✅ Always count every emotion, including Neutral
+        mood_counts[label] = mood_counts.get(label, 0) + 1
+
+# ✅ Keep appending instances
+        if label not in mood_instances:
+            mood_instances[label] = []
+        mood_instances[label].append({
+        'timestamp': entry['timestamp'],
+        'message': entry['user_input']
+        })
+
 
     return mood_counts, mood_instances, mood_suggestions
 
@@ -126,64 +165,6 @@ def generate_mood_chart(mood_data):
 def mood_chart():
     mood_data, mood_instances, mood_suggestions = analyze_mood_log()
     return render_template("mood.html", chart=generate_mood_chart(mood_data), mood_data=mood_data, mood_instances=mood_instances, mood_suggestions=mood_suggestions)
-
-@app.route("/download_emotion_report")
-def download_emotion_report():
-    mood_data, mood_instances, mood_suggestions = analyze_mood_log()
-
-    # Create PDF in memory
-    buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter
-
-    # Title
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(50, height - 50, "User Emotion Report")
-    c.setFont("Helvetica", 12)
-    c.drawString(50, height - 70, f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    y = height - 100
-
-    # Log each emotion entry
-    emotion_log = session.get('emotion_log', [])
-    mood_keywords = {
-        r"\bhappy\b": "Happy",
-        r"\bjoy\b": "Happy",
-        r"\bsad\b": "Sad",
-        r"\bdepressed\b": "Sad",
-        r"\bangry\b": "Angry",
-        r"\bmad\b": "Angry",
-        r"\banxious\b": "Anxious",
-        r"\bstressed\b": "Anxious",
-        r"\bexcited\b": "Excited",
-        r"\boverwhelmed\b": "Overwhelmed",
-        r"\bcalm\b": "Calm",
-        r"\blonely\b": "Lonely"
-    }
-
-    for i, entry in enumerate(emotion_log, start=1):
-        user_text = entry['user_input']
-        timestamp = entry['timestamp']
-        detected_mood = "Unknown"
-
-        # Check for mood
-        for pattern, mood in mood_keywords.items():
-            if re.search(pattern, user_text.lower()):
-                detected_mood = mood
-                break
-
-        block = f"{i}. [{timestamp}]\nUser: {user_text}\nDetected Mood: {detected_mood}"
-        for line in block.split('\n'):
-            if y < 80:  # New page
-                c.showPage()
-                y = height - 50
-            c.drawString(50, y, line)
-            y -= 20
-        y -= 10
-
-    c.save()
-    buffer.seek(0)
-
-    return send_file(buffer, as_attachment=True, download_name="emotion_report.pdf", mimetype="application/pdf")
 
 @app.route("/chat", methods=["POST"])
 def chat():
