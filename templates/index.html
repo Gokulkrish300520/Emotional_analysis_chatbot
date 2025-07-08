@@ -1,9 +1,11 @@
-{% extends "base.html" %} {% block title %} Emotional Chatbot {% endblock %} {%
-block styles %}
-<link
-  href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
-  rel="stylesheet"
-/>
+{% extends "base.html" %}
+
+{% block title %}
+Emotional Chatbot
+{% endblock %}
+
+{% block styles %}
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 <style>
   .chat-container {
     max-height: 70vh;
@@ -34,70 +36,31 @@ block styles %}
     color: white !important;
   }
 </style>
-{% endblock %} {% block chatboti %}
-<div
-  class="min-h-screen bg-gradient-to-br from-indigo-100 to-purple-100 flex flex-col items-center justify-center p-4"
->
+{% endblock %}
+
+{% block chatboti %}
+<div class="min-h-screen bg-gradient-to-br from-indigo-100 to-purple-100 flex flex-col items-center justify-center p-4">
   <div class="w-full max-w-2xl bg-white rounded-2xl shadow-xl p-6">
-    <h1 class="text-3xl font-bold text-center text-indigo-600 mb-6">
-      Emotional Chatbot
-    </h1>
+    <h1 class="text-3xl font-bold text-center text-indigo-600 mb-6">Emotional Chatbot</h1>
     <div id="chat-box" class="chat-container mb-4 p-4 bg-gray-50 rounded-lg">
       {% for msg in chat_messages %}
-      <div
-        class="message {{ 'user-message' if msg.sender == 'user' else 'bot-message' }}"
-      >
-        {{ msg.message | safe }}
-      </div>
+        <div class="message {{ 'user-message' if msg.sender == 'user' else 'bot-message' }}">
+          {{ msg.message | safe }}
+        </div>
       {% endfor %}
     </div>
     <div class="flex items-center space-x-2">
-      <textarea
-        id="chat-input"
-        class="flex-1 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        rows="2"
-        placeholder="Type your message..."
-      ></textarea>
-      <button
-        id="send-btn"
-        class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-      >
-        Send
-      </button>
-      <button
-        id="mic-btn"
-        class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition"
-        title="Start/Stop Listening"
-      >
-        🎤
-      </button>
-      <button
-        id="speak-btn"
-        class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition"
-        title="Speak Last Response"
-      >
-        🔊
-      </button>
-      <button
-        id="clear-btn"
-        class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
-      >
-        Clear
-      </button>
+      <textarea id="chat-input" class="flex-1 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" rows="2" placeholder="Type your message..."></textarea>
+      <button id="send-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">Send</button>
+      <button id="mic-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition" title="Start/Stop Listening">🎤</button>
+      <button id="speak-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition" title="Speak Last Response">🔊</button>
+      <button id="clear-btn" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">Clear</button>
     </div>
-    <div class="flex justify-center mt-6">
-  <a href="{{ url_for('download_emotion_report') }}" target="_blank">
-    <button
-      class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-    >
-      📄 Download Emotion Report
-    </button>
-  </a>
-</div>
-
   </div>
 </div>
-{% endblock %} {% block scripts %}
+{% endblock %}
+
+{% block scripts %}
 <script>
   const chatBox = document.getElementById("chat-box");
   const chatInput = document.getElementById("chat-input");
@@ -108,8 +71,7 @@ block styles %}
   let lastBotResponse = "";
 
   // Speech Recognition
-  const recognition = new (window.SpeechRecognition ||
-    window.webkitSpeechRecognition)();
+  const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
   recognition.lang = "en-US";
   recognition.interimResults = false;
   let isListening = false;
@@ -200,9 +162,7 @@ block styles %}
   // Append Message to Chat
   function appendMessage(sender, message) {
     const messageDiv = document.createElement("div");
-    messageDiv.className = `message ${
-      sender === "user" ? "user-message" : "bot-message"
-    }`;
+    messageDiv.className = `message ${sender === "user" ? "user-message" : "bot-message"}`;
     messageDiv.innerHTML = message;
     chatBox.appendChild(messageDiv);
     chatBox.scrollTop = chatBox.scrollHeight;
